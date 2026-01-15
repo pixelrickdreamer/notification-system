@@ -1,0 +1,27 @@
+# Backend
+backend/build/
+backend/.gradle/
+backend/bin/
+backend/*.iml
+backend/out/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
