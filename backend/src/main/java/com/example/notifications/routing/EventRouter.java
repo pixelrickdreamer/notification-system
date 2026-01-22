@@ -1,12 +1,12 @@
 package com.example.notifications.routing;
 
+import com.example.notifications.model.Application;
 import com.example.notifications.model.IncomingEvent;
 import com.example.notifications.model.Reaction;
+import com.example.notifications.service.FraudDetectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
@@ -20,17 +20,38 @@ public class EventRouter {
 
     private final List<RoutingRule> rules;
     private final ReactionExecutor reactionExecutor;
+    private final FraudDetectionService fraudDetectionService;
 
-    public EventRouter(List<RoutingRule> rules, ReactionExecutor reactionExecutor) {
+    public EventRouter(List<RoutingRule> rules, ReactionExecutor reactionExecutor,
+                       FraudDetectionService fraudDetectionService) {
         this.rules = rules;
         this.reactionExecutor = reactionExecutor;
-        log.info("EventRouter initialized with {} rules: {}",
+        this.fraudDetectionService = fraudDetectionService;
+        log.info("EventRouter initialized with {} code-based rules: {}",
             rules.size(),
             rules.stream().map(RoutingRule::getName).toList());
     }
 
     @KafkaListener(
-        topicPattern = ".*\\.events",
+        topics = "applications.events",
+        groupId = "fraud-gateway",
+        properties = {
+            "spring.json.trusted.packages=*",
+            "spring.json.value.default.type=java.util.Map"
+        }
+    )
+    public void processApplication(ConsumerRecord<String, Map<String, Object>> record) {
+        String topic = record.topic();
+        Map<String, Object> payload = record.value();
+
+        log.info("Received application on topic {}: {}", topic, payload);
+
+        Application application = Application.fromKafkaMessage(topic, payload);
+        fraudDetectionService.processApplication(application);
+    }
+
+    @KafkaListener(
+        topicPattern = "(?!applications).*\\.events",
         groupId = "event-router",
         properties = {
             "spring.json.trusted.packages=*",
@@ -54,7 +75,7 @@ public class EventRouter {
 
         IncomingEvent event = IncomingEvent.create(source, topic, type, payload);
 
-        // Find matching rules and execute reactions
+        // Find matching rules and execute reactions (code-based rules)
         int matchCount = 0;
         for (RoutingRule rule : rules) {
             if (rule.matches(event)) {
