@@ -47,7 +47,7 @@ docker compose ps
 
 ```bash
 cd backend
-./gradlew bootRun
+./mvnw spring-boot:run
 ```
 
 The backend runs on http://localhost:8081
@@ -96,7 +96,7 @@ curl -X POST http://localhost:8081/api/notifications \
 notification-system/
 ├── docker-compose.yml          # Kafka infrastructure
 ├── backend/
-│   ├── build.gradle.kts        # Gradle build config
+│   ├── pom.xml                 # Maven build config
 │   └── src/main/
 │       ├── java/com/example/notifications/
 │       │   ├── NotificationServiceApplication.java
@@ -129,13 +129,13 @@ Use the CLI producer to send test events:
 cd backend
 
 # High-value order (triggers alert)
-./gradlew sendEvent --args="orders.events order.created '{\"orderId\":\"ORD-123\",\"amount\":1500}'"
+./mvnw exec:java -Dexec.args="orders.events order.created '{\"orderId\":\"ORD-123\",\"amount\":1500}'"
 
 # Payment failure (triggers alert + publishes to alerts topic)
-./gradlew sendEvent --args="payments.events payment.failed '{\"paymentId\":\"PAY-456\",\"reason\":\"Insufficient funds\"}'"
+./mvnw exec:java -Dexec.args="payments.events payment.failed '{\"paymentId\":\"PAY-456\",\"reason\":\"Insufficient funds\"}'"
 
 # Low inventory (triggers alert)
-./gradlew sendEvent --args="inventory.events inventory.low '{\"productId\":\"PROD-789\",\"productName\":\"Widget\",\"currentStock\":5}'"
+./mvnw exec:java -Dexec.args="inventory.events inventory.low '{\"productId\":\"PROD-789\",\"productName\":\"Widget\",\"currentStock\":5}'"
 ```
 
 ### Built-in Routing Rules
@@ -181,7 +181,7 @@ docker compose down
 docker compose down -v
 
 # Build backend without running
-cd backend && ./gradlew build
+cd backend && ./mvnw package
 
 # Run frontend in production mode
 cd frontend && npm run build && npm run preview
@@ -253,3 +253,23 @@ Visit http://localhost:8080 to:
 **No notifications appearing**
 - Check Kafka UI at http://localhost:8080 to see if messages are being published
 - Check backend logs for consumer errors
+
+**Application stuck or in a bad state**
+
+Fresh restart (keeps data):
+```bash
+docker compose down
+docker compose up -d
+```
+
+Full reset (wipes all data):
+```bash
+docker compose down -v
+docker compose up -d
+```
+
+Nuclear option (removes everything including images):
+```bash
+docker compose down -v --rmi all
+docker compose up -d
+```
